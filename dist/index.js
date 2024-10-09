@@ -15849,9 +15849,13 @@ function main() {
         const parsedDiff = (0, parse_diff_1.default)(diff);
         parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
         console.log("Parsed Diff:", parsedDiff); // Log parsed diff
+        // Get include patterns or use a default value if not provided
+        let includePatternsInput = core.getInput("include") || "**/*.cs,**/*.yml,**/*";
+        includePatternsInput = includePatternsInput.trim() ? includePatternsInput : "**/*.cs,**/*.yml,**/*";
         const includePatterns = includePatternsInput
             .split(",")
-            .map((s) => s.trim());
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
         console.log("Include patterns:", includePatterns);
         const filteredDiff = parsedDiff.filter((file) => {
             var _a;
