@@ -106,7 +106,7 @@ async function analyzeCode(
       console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
       try {
         const aiResponse = await getAIResponse(prompt);
-        console.log("Response from OpenAI:", aiResponse); // Log the response
+        console.log("Response from OpenAI (raw JSON):", aiResponse); // Log the response
         if (aiResponse) {
           const newComments = createComment(file, chunk, aiResponse);
           if (newComments) {
@@ -158,10 +158,7 @@ function sanitizeAIResponse(response: string): string {
   return response.replace(/```(?:json)?|```/g, "").trim();
 }
 
-async function getAIResponse(prompt: string): Promise<Array<{
-  lineNumber: string;
-  reviewComment: string;
-}> | null> {
+async function getAIResponse(prompt: string): Promise<string> {
   console.log("Sending prompt to OpenAI...");
   const queryConfig = {
     model: OPENAI_API_MODEL,
@@ -175,10 +172,6 @@ async function getAIResponse(prompt: string): Promise<Array<{
   try {
     const response = await openai.chat.completions.create({
       ...queryConfig,
-      // return JSON if the model supports it:
-      ...(OPENAI_API_MODEL === "gpt-4o"
-          ? { response_format: { type: "json_object" } }
-          : {}),
       messages: [
         {
           role: "system",
@@ -187,38 +180,42 @@ async function getAIResponse(prompt: string): Promise<Array<{
       ],
     });
 
-    console.log("OpenAI response received:", response);
+    console.log("OpenAI response received (raw):", response);
     let res = response.choices[0].message?.content?.trim() || "{}";
 
-    // Sanitize response before parsing
+    // Sanitize response before returning
     res = sanitizeAIResponse(res);
 
-    return JSON.parse(res).reviews;
+    return res;
   } catch (error) {
     console.error("Error getting AI response:", error);
     console.error("Prompt that caused error:", prompt);
-    return null;
+    return "{}";
   }
 }
 
 function createComment(
     file: File,
     chunk: Chunk,
-    aiResponses: Array<{
-      lineNumber: string;
-      reviewComment: string;
-    }>
+    aiResponse: string
 ): Array<{ body: string; path: string; line: number }> {
-  return aiResponses.flatMap((aiResponse) => {
-    if (!file.to) {
-      return [];
-    }
-    return {
-      body: aiResponse.reviewComment,
-      path: file.to,
-      line: Number(aiResponse.lineNumber),
-    };
-  });
+  try {
+    const reviews = JSON.parse(aiResponse).reviews;
+    return reviews.flatMap((review: { lineNumber: string; reviewComment: string }) => {
+      if (!file.to) {
+        return [];
+      }
+      return {
+        body: review.reviewComment,
+        path: file.to,
+        line: Number(review.lineNumber),
+      };
+    });
+  } catch (error) {
+    console.error("Error parsing AI response JSON:", error);
+    console.error("AI response was:", aiResponse);
+    return [];
+  }
 }
 
 async function createReviewComment(
