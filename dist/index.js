@@ -218,12 +218,12 @@ function main() {
             return;
         }
         const parsedDiff = (0, parse_diff_1.default)(diff);
-        const includePatterns = core
-            .getInput("include")
+        const excludePatterns = core
+            .getInput("exclude")
             .split(",")
             .map((s) => s.trim());
         const filteredDiff = parsedDiff.filter((file) => {
-            return includePatterns.some((pattern) => { var _a; return (0, minimatch_1.default)((_a = file.to) !== null && _a !== void 0 ? _a : "", pattern); });
+            return !excludePatterns.some((pattern) => { var _a; return (0, minimatch_1.default)((_a = file.to) !== null && _a !== void 0 ? _a : "", pattern); });
         });
         const comments = yield analyzeCode(filteredDiff, prDetails);
         if (comments.length > 0) {
