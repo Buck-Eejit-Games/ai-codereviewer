@@ -222,7 +222,7 @@ async function main() {
   const parsedDiff = parseDiff(diff);
 
   const includePatterns = core
-    .getInput("Exclude")
+    .getInput("include")
     .split(",")
     .map((s) => s.trim());
 
