@@ -15818,8 +15818,9 @@ function main() {
         const prDetails = yield getPRDetails();
         let diff;
         const eventData = JSON.parse((0, fs_1.readFileSync)((_a = process.env.GITHUB_EVENT_PATH) !== null && _a !== void 0 ? _a : "", "utf8"));
-        console.log("Event action:", eventData.action);
-        if (eventData.action === "opened" || eventData.action === "workflow_dispatch") {
+        console.log("Event action:", process.env.GITHUB_EVENT_NAME);
+        console.log(process.env.GITHUB_EVENT_NAME === "workflow_dispatch");
+        if (eventData.action === "opened" || process.env.GITHUB_EVENT_NAME === "workflow_dispatch") {
             diff = yield getDiff(prDetails.owner, prDetails.repo, prDetails.pull_number);
         }
         else if (eventData.action === "synchronize") {
