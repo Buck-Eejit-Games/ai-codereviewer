@@ -15576,6 +15576,7 @@ const openai_1 = __importDefault(__nccwpck_require__(47));
 const rest_1 = __nccwpck_require__(5375);
 const parse_diff_1 = __importDefault(__nccwpck_require__(4833));
 const minimatch_1 = __importDefault(__nccwpck_require__(2002));
+const path_1 = __importDefault(__nccwpck_require__(1017));
 console.log("Starting AI Code Reviewer action... (initial log)");
 // Log all inputs early to verify they are being set correctly
 const GITHUB_TOKEN = core.getInput("GITHUB_TOKEN");
@@ -15846,13 +15847,18 @@ function main() {
         }
         console.log("Diff found, parsing...");
         const parsedDiff = (0, parse_diff_1.default)(diff);
+        parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
         console.log("Parsed Diff:", parsedDiff); // Log parsed diff
         const includePatterns = includePatternsInput
             .split(",")
             .map((s) => s.trim());
         console.log("Include patterns:", includePatterns);
         const filteredDiff = parsedDiff.filter((file) => {
-            return includePatterns.some((pattern) => { var _a; return (0, minimatch_1.default)((_a = file.to) !== null && _a !== void 0 ? _a : "", pattern); });
+            var _a;
+            const normalizedPath = path_1.default.normalize((_a = file.to) !== null && _a !== void 0 ? _a : "");
+            const match = includePatterns.some((pattern) => (0, minimatch_1.default)(normalizedPath, pattern));
+            console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
+            return match;
         });
         console.log("Filtered Diff:", filteredDiff); // Log filtered diff
         if (filteredDiff.length === 0) {

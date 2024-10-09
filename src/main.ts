@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { Octokit } from "@octokit/rest";
 import parseDiff, { Chunk, File } from "parse-diff";
 import minimatch from "minimatch";
+import path from "path";
 
 console.log("Starting AI Code Reviewer action... (initial log)");
 
@@ -323,6 +324,7 @@ async function main() {
 
   console.log("Diff found, parsing...");
   const parsedDiff = parseDiff(diff);
+  parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
   console.log("Parsed Diff:", parsedDiff); // Log parsed diff
 
   const includePatterns = includePatternsInput
@@ -332,9 +334,10 @@ async function main() {
   console.log("Include patterns:", includePatterns);
 
   const filteredDiff = parsedDiff.filter((file) => {
-    return includePatterns.some((pattern) =>
-        minimatch(file.to ?? "", pattern)
-    );
+    const normalizedPath = path.normalize(file.to ?? "");
+    const match = includePatterns.some((pattern) => minimatch(normalizedPath, pattern));
+    console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
+    return match;
   });
   console.log("Filtered Diff:", filteredDiff); // Log filtered diff
 
