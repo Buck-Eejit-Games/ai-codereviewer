@@ -5,9 +5,13 @@ import { Octokit } from "@octokit/rest";
 import parseDiff, { Chunk, File } from "parse-diff";
 import minimatch from "minimatch";
 
+console.log("Starting AI Code Reviewer action..."); // Initial log to confirm script starts
+
 const GITHUB_TOKEN: string = core.getInput("GITHUB_TOKEN");
 const OPENAI_API_KEY: string = core.getInput("OPENAI_API_KEY");
 const OPENAI_API_MODEL: string = core.getInput("OPENAI_API_MODEL");
+
+console.log("Inputs retrieved: GITHUB_TOKEN, OPENAI_API_KEY, OPENAI_API_MODEL");
 
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
@@ -24,14 +28,17 @@ interface PRDetails {
 }
 
 async function getPRDetails(): Promise<PRDetails> {
+  console.log("Fetching PR details...");
   const { repository, number } = JSON.parse(
       readFileSync(process.env.GITHUB_EVENT_PATH || "", "utf8")
   );
+  console.log("Repository and PR number retrieved from event data:", repository, number);
   const prResponse = await octokit.pulls.get({
     owner: repository.owner.login,
     repo: repository.name,
     pull_number: number,
   });
+  console.log("PR details fetched from GitHub:", prResponse.data);
   return {
     owner: repository.owner.login,
     repo: repository.name,
@@ -46,12 +53,14 @@ async function getDiff(
     repo: string,
     pull_number: number
 ): Promise<string | null> {
+  console.log("Fetching diff for PR...");
   const response = await octokit.pulls.get({
     owner,
     repo,
     pull_number,
     mediaType: { format: "diff" },
   });
+  console.log("Diff fetched:", response.data);
   // @ts-expect-error - response.data is a string
   return response.data;
 }
@@ -60,11 +69,14 @@ async function analyzeCode(
     parsedDiff: File[],
     prDetails: PRDetails
 ): Promise<Array<{ body: string; path: string; line: number }>> {
+  console.log("Analyzing code...");
   const comments: Array<{ body: string; path: string; line: number }> = [];
 
   for (const file of parsedDiff) {
+    console.log("Processing file:", file.to);
     if (file.to === "/dev/null") continue; // Ignore deleted files
     for (const chunk of file.chunks) {
+      console.log("Processing chunk:", chunk.content);
       const prompt = createPrompt(file, chunk, prDetails);
       console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
       try {
@@ -120,6 +132,7 @@ async function getAIResponse(prompt: string): Promise<Array<{
   lineNumber: string;
   reviewComment: string;
 }> | null> {
+  console.log("Sending prompt to OpenAI...");
   const queryConfig = {
     model: OPENAI_API_MODEL,
     temperature: 0.2,
@@ -144,6 +157,7 @@ async function getAIResponse(prompt: string): Promise<Array<{
       ],
     });
 
+    console.log("OpenAI response received:", response);
     const res = response.choices[0].message?.content?.trim() || "{}";
     return JSON.parse(res).reviews;
   } catch (error) {
@@ -179,6 +193,7 @@ async function createReviewComment(
     pull_number: number,
     comments: Array<{ body: string; path: string; line: number }>
 ): Promise<void> {
+  console.log("Creating review comment on GitHub...");
   await octokit.pulls.createReview({
     owner,
     repo,
@@ -186,14 +201,18 @@ async function createReviewComment(
     comments,
     event: "COMMENT",
   });
+  console.log("Review comment created.");
 }
 
 async function main() {
+  console.log("Starting main function...");
   const prDetails = await getPRDetails();
   let diff: string | null;
   const eventData = JSON.parse(
       readFileSync(process.env.GITHUB_EVENT_PATH ?? "", "utf8")
   );
+
+  console.log("Event data:", eventData);
 
   if (eventData.action === "opened") {
     diff = await getDiff(
@@ -205,6 +224,7 @@ async function main() {
     const newBaseSha = eventData.before;
     const newHeadSha = eventData.after;
 
+    console.log("Fetching diff for synchronized event...");
     const response = await octokit.repos.compareCommits({
       headers: {
         accept: "application/vnd.github.v3.diff",
@@ -226,6 +246,7 @@ async function main() {
     return;
   }
 
+  console.log("Diff found, parsing...");
   const parsedDiff = parseDiff(diff);
   console.log("Parsed Diff:", parsedDiff); // Log parsed diff
 
@@ -234,6 +255,8 @@ async function main() {
       .split(",")
       .map((s) => s.trim());
 
+  console.log("Include patterns:", includePatterns);
+
   const filteredDiff = parsedDiff.filter((file) => {
     return includePatterns.some((pattern) =>
         minimatch(file.to ?? "", pattern)
@@ -241,14 +264,22 @@ async function main() {
   });
   console.log("Filtered Diff:", filteredDiff); // Log filtered diff
 
+  if (filteredDiff.length === 0) {
+    console.log("No files matched the include patterns.");
+    return;
+  }
+
   const comments = await analyzeCode(filteredDiff, prDetails);
   if (comments.length > 0) {
+    console.log("Comments generated:", comments);
     await createReviewComment(
         prDetails.owner,
         prDetails.repo,
         prDetails.pull_number,
         comments
     );
+  } else {
+    console.log("No comments generated.");
   }
 }
 
