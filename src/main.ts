@@ -329,8 +329,8 @@ async function main() {
   console.log("Parsed Diff:", parsedDiff); // Log parsed diff
 
   // Get include patterns or use a default value if not provided
-  let includePatternsInput: string = core.getInput("include") || "**/*.cs,**/*.yml,**/*";
-  includePatternsInput = includePatternsInput.trim() ? includePatternsInput : "**/*.cs,**/*.yml,**/*";
+  let includePatternsInput: string = core.getInput("include") || "**/*.cs,**/*.yml";
+  includePatternsInput = includePatternsInput.trim() ? includePatternsInput : "**/*.cs,**/*.yml";
 
   const includePatterns = includePatternsInput
       .split(",")
