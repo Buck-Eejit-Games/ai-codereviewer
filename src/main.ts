@@ -54,10 +54,10 @@ async function getPRDetails(): Promise<PRDetails> {
     console.error("Error: GITHUB_EVENT_PATH is not defined.");
     process.exit(1);
   }
-  const { repository, number } = JSON.parse(
-      readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")
-  );
-  console.log("Repository and PR number retrieved from event data:", repository, number);
+  const eventPath = readFileSync(process.env.GITHUB_EVENT_PATH, "utf8");
+  console.error("GITHUB_EVENT_PATH:/n" + eventPath);
+  const { repository, number } = JSON.parse(eventPath);
+  // console.log("Repository and PR number retrieved from event data:", repository, number);
   const prResponse = await octokit.pulls.get({
     owner: repository.owner.login,
     repo: repository.name,
