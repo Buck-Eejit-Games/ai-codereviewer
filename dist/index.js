@@ -15616,7 +15616,7 @@ function getPRDetails() {
         // Check for event path and read event data
         if (process.env.GITHUB_EVENT_PATH) {
             const eventData = JSON.parse((0, fs_1.readFileSync)(process.env.GITHUB_EVENT_PATH, "utf8"));
-            console.log("Event data:", eventData);
+            // console.log("Event data:", eventData);
             if (eventData.pull_request) {
                 // Handle pull_request and synchronize events
                 pull_number = eventData.pull_request.number;
@@ -15658,7 +15658,7 @@ function getPRDetails() {
             repo,
             pull_number,
         });
-        console.log("PR details fetched from GitHub:", prResponse.data);
+        // console.log("PR details fetched from GitHub:", prResponse.data);
         return {
             owner,
             repo,
@@ -15818,8 +15818,8 @@ function main() {
         const prDetails = yield getPRDetails();
         let diff;
         const eventData = JSON.parse((0, fs_1.readFileSync)((_a = process.env.GITHUB_EVENT_PATH) !== null && _a !== void 0 ? _a : "", "utf8"));
-        console.log("Event data:", eventData);
-        if (eventData.action === "opened") {
+        // console.log("Event data:", eventData);
+        if (eventData.action === "opened" || eventData.action === "workflow_dispatch") {
             diff = yield getDiff(prDetails.owner, prDetails.repo, prDetails.pull_number);
         }
         else if (eventData.action === "synchronize") {

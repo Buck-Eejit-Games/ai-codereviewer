@@ -59,7 +59,7 @@ async function getPRDetails(): Promise<PRDetails> {
   // Check for event path and read event data
   if (process.env.GITHUB_EVENT_PATH) {
     const eventData = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-    console.log("Event data:", eventData);
+    // console.log("Event data:", eventData);
 
     if (eventData.pull_request) {
       // Handle pull_request and synchronize events
@@ -107,7 +107,7 @@ async function getPRDetails(): Promise<PRDetails> {
     pull_number,
   });
 
-  console.log("PR details fetched from GitHub:", prResponse.data);
+  // console.log("PR details fetched from GitHub:", prResponse.data);
   return {
     owner,
     repo,
@@ -288,9 +288,9 @@ async function main() {
       readFileSync(process.env.GITHUB_EVENT_PATH ?? "", "utf8")
   );
 
-  console.log("Event data:", eventData);
+  // console.log("Event data:", eventData);
 
-  if (eventData.action === "opened") {
+  if (eventData.action === "opened" || eventData.action === "workflow_dispatch") {
     diff = await getDiff(
         prDetails.owner,
         prDetails.repo,
