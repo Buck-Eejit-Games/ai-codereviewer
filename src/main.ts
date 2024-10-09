@@ -50,24 +50,67 @@ interface PRDetails {
 
 async function getPRDetails(): Promise<PRDetails> {
   console.log("Fetching PR details...");
-  if (!process.env.GITHUB_EVENT_PATH) {
-    console.error("Error: GITHUB_EVENT_PATH is not defined.");
+
+  let pull_number: number | undefined;
+  let owner: string | undefined;
+  let repo: string | undefined;
+
+  // Check for event path and read event data
+  if (process.env.GITHUB_EVENT_PATH) {
+    const eventData = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+    console.log("Event data:", eventData);
+
+    if (eventData.pull_request) {
+      // Handle pull_request and synchronize events
+      pull_number = eventData.pull_request.number;
+      owner = eventData.repository?.owner?.login;
+      repo = eventData.repository?.name;
+    } else if (eventData.inputs && eventData.inputs.pull_number) {
+      // Handle workflow_dispatch with pull_number as input
+      pull_number = parseInt(eventData.inputs.pull_number, 10);
+      owner = eventData.repository?.owner?.login;
+      repo = eventData.repository?.name;
+    }
+  }
+
+  // If GITHUB_EVENT_PATH does not provide necessary information, fallback to input
+  if (!pull_number) {
+    // Attempt to get pull number from workflow inputs (workflow_dispatch case)
+    pull_number = parseInt(core.getInput("pull_number"));
+    if (!pull_number) {
+      console.error("Error: pull_number input is required but not provided.");
+      process.exit(1);
+    }
+  }
+
+  // Get owner and repo from GITHUB_REPOSITORY environment variable if not set
+  if (!owner || !repo) {
+    if (!process.env.GITHUB_REPOSITORY) {
+      console.error("Error: GITHUB_REPOSITORY is not defined.");
+      process.exit(1);
+    }
+    [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+  }
+
+  if (!owner || !repo) {
+    console.error("Error: Unable to determine repository owner and name.");
     process.exit(1);
   }
-  const eventPath = readFileSync(process.env.GITHUB_EVENT_PATH, "utf8");
-  console.error("GITHUB_EVENT_PATH:/n" + eventPath);
-  const { repository, number } = JSON.parse(eventPath);
-  // console.log("Repository and PR number retrieved from event data:", repository, number);
+
+  console.log(`Repository details: owner=${owner}, repo=${repo}, pull_number=${pull_number}`);
+
+  // Fetch pull request details using octokit
   const prResponse = await octokit.pulls.get({
-    owner: repository.owner.login,
-    repo: repository.name,
-    pull_number: number,
+    owner,
+    repo,
+    pull_number,
   });
+
   console.log("PR details fetched from GitHub:", prResponse.data);
   return {
-    owner: repository.owner.login,
-    repo: repository.name,
-    pull_number: number,
+    owner,
+    repo,
+    pull_number,
     title: prResponse.data.title ?? "",
     description: prResponse.data.body ?? "",
   };
@@ -181,7 +224,7 @@ async function getAIResponse(prompt: string): Promise<string> {
       ],
     });
 
-    // console.log("OpenAI response received (raw):", response);
+    console.log("OpenAI response received (raw):", response);
     let res = response.choices[0].message?.content?.trim() || "{}";
 
     // Sanitize response before returning

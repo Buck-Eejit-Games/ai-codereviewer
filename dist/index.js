@@ -15606,29 +15606,64 @@ const openai = new openai_1.default({
     apiKey: OPENAI_API_KEY,
 });
 function getPRDetails() {
-    var _a, _b;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     return __awaiter(this, void 0, void 0, function* () {
         console.log("Fetching PR details...");
-        if (!process.env.GITHUB_EVENT_PATH) {
-            console.error("Error: GITHUB_EVENT_PATH is not defined.");
+        let pull_number;
+        let owner;
+        let repo;
+        // Check for event path and read event data
+        if (process.env.GITHUB_EVENT_PATH) {
+            const eventData = JSON.parse((0, fs_1.readFileSync)(process.env.GITHUB_EVENT_PATH, "utf8"));
+            console.log("Event data:", eventData);
+            if (eventData.pull_request) {
+                // Handle pull_request and synchronize events
+                pull_number = eventData.pull_request.number;
+                owner = (_b = (_a = eventData.repository) === null || _a === void 0 ? void 0 : _a.owner) === null || _b === void 0 ? void 0 : _b.login;
+                repo = (_c = eventData.repository) === null || _c === void 0 ? void 0 : _c.name;
+            }
+            else if (eventData.inputs && eventData.inputs.pull_number) {
+                // Handle workflow_dispatch with pull_number as input
+                pull_number = parseInt(eventData.inputs.pull_number, 10);
+                owner = (_e = (_d = eventData.repository) === null || _d === void 0 ? void 0 : _d.owner) === null || _e === void 0 ? void 0 : _e.login;
+                repo = (_f = eventData.repository) === null || _f === void 0 ? void 0 : _f.name;
+            }
+        }
+        // If GITHUB_EVENT_PATH does not provide necessary information, fallback to input
+        if (!pull_number) {
+            // Attempt to get pull number from workflow inputs (workflow_dispatch case)
+            pull_number = parseInt(core.getInput("pull_number"));
+            if (!pull_number) {
+                console.error("Error: pull_number input is required but not provided.");
+                process.exit(1);
+            }
+        }
+        // Get owner and repo from GITHUB_REPOSITORY environment variable if not set
+        if (!owner || !repo) {
+            if (!process.env.GITHUB_REPOSITORY) {
+                console.error("Error: GITHUB_REPOSITORY is not defined.");
+                process.exit(1);
+            }
+            [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+        }
+        if (!owner || !repo) {
+            console.error("Error: Unable to determine repository owner and name.");
             process.exit(1);
         }
-        const eventPath = (0, fs_1.readFileSync)(process.env.GITHUB_EVENT_PATH, "utf8");
-        console.error("GITHUB_EVENT_PATH:/n" + eventPath);
-        const { repository, number } = JSON.parse(eventPath);
-        // console.log("Repository and PR number retrieved from event data:", repository, number);
+        console.log(`Repository details: owner=${owner}, repo=${repo}, pull_number=${pull_number}`);
+        // Fetch pull request details using octokit
         const prResponse = yield octokit.pulls.get({
-            owner: repository.owner.login,
-            repo: repository.name,
-            pull_number: number,
+            owner,
+            repo,
+            pull_number,
         });
         console.log("PR details fetched from GitHub:", prResponse.data);
         return {
-            owner: repository.owner.login,
-            repo: repository.name,
-            pull_number: number,
-            title: (_a = prResponse.data.title) !== null && _a !== void 0 ? _a : "",
-            description: (_b = prResponse.data.body) !== null && _b !== void 0 ? _b : "",
+            owner,
+            repo,
+            pull_number,
+            title: (_g = prResponse.data.title) !== null && _g !== void 0 ? _g : "",
+            description: (_h = prResponse.data.body) !== null && _h !== void 0 ? _h : "",
         };
     });
 }
@@ -15729,7 +15764,7 @@ function getAIResponse(prompt) {
                         content: prompt,
                     },
                 ] }));
-            // console.log("OpenAI response received (raw):", response);
+            console.log("OpenAI response received (raw):", response);
             let res = ((_b = (_a = response.choices[0].message) === null || _a === void 0 ? void 0 : _a.content) === null || _b === void 0 ? void 0 : _b.trim()) || "{}";
             // Sanitize response before returning
             res = sanitizeAIResponse(res);
