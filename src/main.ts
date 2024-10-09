@@ -288,7 +288,7 @@ async function main() {
       readFileSync(process.env.GITHUB_EVENT_PATH ?? "", "utf8")
   );
 
-  // console.log("Event data:", eventData);
+  console.log("Event action:", eventData.action);
 
   if (eventData.action === "opened" || eventData.action === "workflow_dispatch") {
     diff = await getDiff(
