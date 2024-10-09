@@ -67,17 +67,13 @@ async function analyzeCode(
     for (const chunk of file.chunks) {
       const prompt = createPrompt(file, chunk, prDetails);
       console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
-      try {
-        const aiResponse = await getAIResponse(prompt);
-        console.log("Response from OpenAI:", aiResponse); // Log the response
-        if (aiResponse) {
-          const newComments = createComment(file, chunk, aiResponse);
-          if (newComments) {
-            comments.push(...newComments);
-          }
+      const aiResponse = await getAIResponse(prompt);
+      console.log("Response from OpenAI:", aiResponse); // Log the response
+      if (aiResponse) {
+        const newComments = createComment(file, chunk, aiResponse);
+        if (newComments) {
+          comments.push(...newComments);
         }
-      } catch (error) {
-        console.error("Error getting AI response:", error);
       }
     }
   }
@@ -147,8 +143,7 @@ async function getAIResponse(prompt: string): Promise<Array<{
     const res = response.choices[0].message?.content?.trim() || "{}";
     return JSON.parse(res).reviews;
   } catch (error) {
-    console.error("Error getting AI response:", error);
-    console.error("Prompt that caused error:", prompt);
+    console.error("Error:", error);
     return null;
   }
 }
@@ -227,7 +222,6 @@ async function main() {
   }
 
   const parsedDiff = parseDiff(diff);
-  console.log("Parsed Diff:", parsedDiff); // Log parsed diff
 
   const includePatterns = core
       .getInput("include")
@@ -239,7 +233,6 @@ async function main() {
         minimatch(file.to ?? "", pattern)
     );
   });
-  console.log("Filtered Diff:", filteredDiff); // Log filtered diff
 
   const comments = await analyzeCode(filteredDiff, prDetails);
   if (comments.length > 0) {
