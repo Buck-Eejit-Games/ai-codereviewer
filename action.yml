@@ -11,10 +11,10 @@ inputs:
     description: "OpenAI API model."
     required: false
     default: "gpt-4"
-  exclude:
-    description: "Glob patterns to exclude files from the diff analysis"
+  include:
+    description: "Glob patterns to include files from the diff analysis"
     required: false
-    default: ""
+    default: "**/*.cs,**/*.yml,**/*"
 runs:
   using: "node16"
   main: "dist/index.js"
