@@ -106,7 +106,8 @@ async function analyzeCode(
       console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
       try {
         const aiResponse = await getAIResponse(prompt);
-        console.log("Response from OpenAI (raw JSON):", aiResponse); // Log the response
+        const parsedResponse = JSON.parse(aiResponse);
+        console.log("Parsed response from OpenAI:", parsedResponse); // Log the parsed response
         if (aiResponse) {
           const newComments = createComment(file, chunk, aiResponse);
           if (newComments) {
@@ -180,7 +181,7 @@ async function getAIResponse(prompt: string): Promise<string> {
       ],
     });
 
-    console.log("OpenAI response received (raw):", response);
+    // console.log("OpenAI response received (raw):", response);
     let res = response.choices[0].message?.content?.trim() || "{}";
 
     // Sanitize response before returning

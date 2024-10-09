@@ -15658,7 +15658,8 @@ function analyzeCode(parsedDiff, prDetails) {
                 console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
                 try {
                     const aiResponse = yield getAIResponse(prompt);
-                    console.log("Response from OpenAI (raw JSON):", aiResponse); // Log the response
+                    const parsedResponse = JSON.parse(aiResponse);
+                    console.log("Parsed response from OpenAI:", parsedResponse); // Log the parsed response
                     if (aiResponse) {
                         const newComments = createComment(file, chunk, aiResponse);
                         if (newComments) {
@@ -15726,7 +15727,7 @@ function getAIResponse(prompt) {
                         content: prompt,
                     },
                 ] }));
-            console.log("OpenAI response received (raw):", response);
+            // console.log("OpenAI response received (raw):", response);
             let res = ((_b = (_a = response.choices[0].message) === null || _a === void 0 ? void 0 : _a.content) === null || _b === void 0 ? void 0 : _b.trim()) || "{}";
             // Sanitize response before returning
             res = sanitizeAIResponse(res);
