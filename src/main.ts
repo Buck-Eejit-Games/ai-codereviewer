@@ -193,7 +193,7 @@ async function getDiff(
     pull_number,
     mediaType: { format: "diff" },
   });
-  console.log("Diff fetched:", response.data);
+  //console.log("Diff fetched:", response.data);
   // @ts-expect-error - response.data is a string
   return response.data;
 }
@@ -209,13 +209,13 @@ async function analyzeCode(
     console.log("Processing file:", file.to);
     if (file.to === "/dev/null") continue; // Ignore deleted files
     for (const chunk of file.chunks) {
-      console.log("Processing chunk:", chunk.content);
+      console.log("Processing chunk");
       const prompt = createPrompt(file, chunk, prDetails);
-      console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
+      console.log("Prompt sent to OpenAI"); // Log the prompt
       try {
         const aiResponse = await getAIResponse(prompt);
         const parsedResponse = JSON.parse(aiResponse);
-        console.log("Parsed response from OpenAI:", parsedResponse); // Log the parsed response
+        //console.log("Parsed response from OpenAI:", parsedResponse); // Log the parsed response
         if (aiResponse) {
           const newComments = createComment(file, chunk, aiResponse);
           if (newComments) {
@@ -238,9 +238,10 @@ function createPrompt(file: File, chunk: Chunk, prDetails: PRDetails): string {
 - Assume any variable you come across is defined, initialized and used correctly. (IMPORTANT)
 - Assume any function you come across is defined, works and used correctly. (IMPORTANT)
 - If code is removed, assume it was necessary to remove it unless you have reference to the full context and don't comment on it.
-- Don't comment on variable names, function names, or parameter names, unless they are completely incorrect.
+- Don't comment on renaming variable names, function names, or parameter names, unless they are completely incorrect.
 - Don't comment on checking for null or undefined unless it is completely incorrect.
 - Don't comment on formatting.
+- Don't comment about checking for zero or invalid values.
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
@@ -303,7 +304,7 @@ async function getAIResponse(prompt: string): Promise<string> {
       ],
     });
 
-    console.log("OpenAI response received (raw):", response);
+    //console.log("OpenAI response received (raw):", response);
     let res = response.choices[0].message?.content?.trim() || "{}";
 
     // Sanitize response before returning
@@ -487,7 +488,7 @@ async function main() {
   console.log("Diff found, parsing...");
   const parsedDiff = parseDiff(diff);
   parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
-  console.log("Parsed Diff:", parsedDiff); // Log parsed diff
+  //console.log("Parsed Diff:", parsedDiff); // Log parsed diff
 
   // Get include patterns or use a default value if not provided
   let includePatternsInput: string = core.getInput("include") || "**/*.cs,**/*.yml";
@@ -503,10 +504,10 @@ async function main() {
   const filteredDiff = parsedDiff.filter((file) => {
     const normalizedPath = path.normalize(file.to ?? "");
     const match = includePatterns.some((pattern) => minimatch(normalizedPath, pattern));
-    console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
+    //console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
     return match;
   });
-  console.log("Filtered Diff:", filteredDiff); // Log filtered diff
+  //console.log("Filtered Diff:", filteredDiff); // Log filtered diff
 
   if (filteredDiff.length === 0) {
     console.log("No files matched the include patterns.");

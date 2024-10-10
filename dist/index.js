@@ -15746,7 +15746,7 @@ function getDiff(owner, repo, pull_number) {
             pull_number,
             mediaType: { format: "diff" },
         });
-        console.log("Diff fetched:", response.data);
+        //console.log("Diff fetched:", response.data);
         // @ts-expect-error - response.data is a string
         return response.data;
     });
@@ -15760,13 +15760,13 @@ function analyzeCode(parsedDiff, prDetails) {
             if (file.to === "/dev/null")
                 continue; // Ignore deleted files
             for (const chunk of file.chunks) {
-                console.log("Processing chunk:", chunk.content);
+                console.log("Processing chunk");
                 const prompt = createPrompt(file, chunk, prDetails);
-                console.log("Prompt sent to OpenAI:", prompt); // Log the prompt
+                console.log("Prompt sent to OpenAI"); // Log the prompt
                 try {
                     const aiResponse = yield getAIResponse(prompt);
                     const parsedResponse = JSON.parse(aiResponse);
-                    console.log("Parsed response from OpenAI:", parsedResponse); // Log the parsed response
+                    //console.log("Parsed response from OpenAI:", parsedResponse); // Log the parsed response
                     if (aiResponse) {
                         const newComments = createComment(file, chunk, aiResponse);
                         if (newComments) {
@@ -15790,9 +15790,10 @@ function createPrompt(file, chunk, prDetails) {
 - Assume any variable you come across is defined, initialized and used correctly. (IMPORTANT)
 - Assume any function you come across is defined, works and used correctly. (IMPORTANT)
 - If code is removed, assume it was necessary to remove it unless you have reference to the full context and don't comment on it.
-- Don't comment on variable names, function names, or parameter names, unless they are completely incorrect.
+- Don't comment on renaming variable names, function names, or parameter names, unless they are completely incorrect.
 - Don't comment on checking for null or undefined unless it is completely incorrect.
 - Don't comment on formatting.
+- Don't comment about checking for zero or invalid values.
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
@@ -15848,7 +15849,7 @@ function getAIResponse(prompt) {
                         content: prompt,
                     },
                 ] }));
-            console.log("OpenAI response received (raw):", response);
+            //console.log("OpenAI response received (raw):", response);
             let res = ((_b = (_a = response.choices[0].message) === null || _a === void 0 ? void 0 : _a.content) === null || _b === void 0 ? void 0 : _b.trim()) || "{}";
             // Sanitize response before returning
             res = sanitizeAIResponse(res);
@@ -16007,7 +16008,7 @@ function main() {
         console.log("Diff found, parsing...");
         const parsedDiff = (0, parse_diff_1.default)(diff);
         parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
-        console.log("Parsed Diff:", parsedDiff); // Log parsed diff
+        //console.log("Parsed Diff:", parsedDiff); // Log parsed diff
         // Get include patterns or use a default value if not provided
         let includePatternsInput = core.getInput("include") || "**/*.cs,**/*.yml";
         includePatternsInput = includePatternsInput.trim() ? includePatternsInput : "**/*.cs,**/*.yml";
@@ -16020,10 +16021,10 @@ function main() {
             var _a;
             const normalizedPath = path_1.default.normalize((_a = file.to) !== null && _a !== void 0 ? _a : "");
             const match = includePatterns.some((pattern) => (0, minimatch_1.default)(normalizedPath, pattern));
-            console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
+            //console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
             return match;
         });
-        console.log("Filtered Diff:", filteredDiff); // Log filtered diff
+        //console.log("Filtered Diff:", filteredDiff); // Log filtered diff
         if (filteredDiff.length === 0) {
             console.log("No files matched the include patterns.");
             return;
