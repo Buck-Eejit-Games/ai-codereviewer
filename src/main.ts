@@ -53,7 +53,13 @@ interface PRDetails {
 async function getPRDetails(): Promise<PRDetails> {
   console.log("Fetching PR details...");
 
-  const octokit = new Octokit();
+  // Authenticate Octokit using GITHUB_TOKEN
+  const token = core.getInput("GITHUB_TOKEN") || process.env.GITHUB_TOKEN;
+  if (!token) {
+    console.error("Error: GITHUB_TOKEN is required but not provided.");
+    process.exit(1);
+  }
+  const octokit = new Octokit({ auth: token });
 
   let pull_number: number | undefined;
   let owner: string | undefined;

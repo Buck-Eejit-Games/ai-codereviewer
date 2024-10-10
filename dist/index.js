@@ -15610,7 +15610,13 @@ function getPRDetails() {
     var _a, _b, _c, _d, _e, _f, _g, _h;
     return __awaiter(this, void 0, void 0, function* () {
         console.log("Fetching PR details...");
-        const octokit = new rest_1.Octokit();
+        // Authenticate Octokit using GITHUB_TOKEN
+        const token = core.getInput("GITHUB_TOKEN") || process.env.GITHUB_TOKEN;
+        if (!token) {
+            console.error("Error: GITHUB_TOKEN is required but not provided.");
+            process.exit(1);
+        }
+        const octokit = new rest_1.Octokit({ auth: token });
         let pull_number;
         let owner;
         let repo;
