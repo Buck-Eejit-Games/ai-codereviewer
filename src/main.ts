@@ -416,7 +416,11 @@ async function createReviewComment(
       owner,
       repo,
       pull_number,
-      comments: formattedComments,
+      comments: formattedComments.map(comment => {
+        // Only include 'position' if it's valid
+        const { position, ...rest } = comment;
+        return position ? { ...rest, position } : rest;
+      }),
       event: "COMMENT",
     });
     console.log("Review comments submitted successfully.");
@@ -424,7 +428,6 @@ async function createReviewComment(
     console.log("No comments to submit.");
   }
 }
-
 
 async function main() {
   console.log("Starting main function...");
