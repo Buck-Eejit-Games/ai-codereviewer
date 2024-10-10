@@ -15888,20 +15888,21 @@ function createReviewComment(owner, repo, pull_number, comments) {
             pull_number,
         });
         const fileDiffs = prFiles.data;
-        // A helper function to check if a line number is within the diff of a file
-        const isValidLine = (path, line) => {
+        // A helper function to get the diff position for a specific line in a file
+        const getDiffPosition = (path, line) => {
             if (!line)
-                return false;
+                return null;
             const fileDiff = fileDiffs.find(file => file.filename === path);
             if (!fileDiff || !fileDiff.patch)
-                return false;
+                return null;
             // Extract diff information for the file
             const diffLines = fileDiff.patch.split("\n");
-            // Validate that the line number is within the diff
             let currentLineInDiff = 0;
+            let positionInDiff = 0;
             for (let i = 0; i < diffLines.length; i++) {
                 const diffLine = diffLines[i];
-                // Lines that start with @@ indicate a new hunk with starting line numbers
+                positionInDiff++; // Always increment the position
+                // Lines starting with @@ indicate a new hunk with line numbers
                 if (diffLine.startsWith("@@")) {
                     const match = diffLine.match(/@@ \-(\d+),\d+ \+(\d+),\d+ @@/);
                     if (match) {
@@ -15910,27 +15911,29 @@ function createReviewComment(owner, repo, pull_number, comments) {
                     }
                 }
                 else if (!diffLine.startsWith("-")) {
-                    // Increment the line count for lines that are not removed (starting with "-")
+                    // Increment line number count only for lines that aren't removed (not starting with "-")
                     currentLineInDiff++;
                 }
+                // If we've reached the requested line, return the position
                 if (currentLineInDiff === line) {
-                    return true; // Line number is valid within this diff
+                    return positionInDiff;
                 }
             }
-            return false;
+            return null;
         };
         const formattedComments = [];
         for (const comment of comments) {
-            if (comment.line && isValidLine(comment.path, comment.line)) {
-                // Step 2: Add valid line-specific comments
+            const diffPosition = getDiffPosition(comment.path, comment.line);
+            if (diffPosition !== null) {
+                // Step 2: Add valid line-specific comments with diff position
                 formattedComments.push({
                     body: comment.body,
                     path: comment.path,
-                    position: comment.line, // Line-specific comment
+                    position: diffPosition, // Use diff position
                 });
             }
             else {
-                // Step 3: Fallback to general file-level comments for invalid line numbers
+                // Step 3: Fallback to general file-level comments if no valid diff position
                 formattedComments.push({
                     body: comment.body,
                     path: comment.path, // General file comment
