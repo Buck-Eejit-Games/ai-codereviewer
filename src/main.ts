@@ -47,10 +47,13 @@ interface PRDetails {
   pull_number: number;
   title: string;
   description: string;
+  uniqueCommits: string[];
 }
 
 async function getPRDetails(): Promise<PRDetails> {
   console.log("Fetching PR details...");
+
+  const octokit = new Octokit();
 
   let pull_number: number | undefined;
   let owner: string | undefined;
@@ -59,15 +62,11 @@ async function getPRDetails(): Promise<PRDetails> {
   // Check for event path and read event data
   if (process.env.GITHUB_EVENT_PATH) {
     const eventData = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-    // console.log("Event data:", eventData);
-
     if (eventData.pull_request) {
-      // Handle pull_request and synchronize events
       pull_number = eventData.pull_request.number;
       owner = eventData.repository?.owner?.login;
       repo = eventData.repository?.name;
     } else if (eventData.inputs && eventData.inputs.pull_number) {
-      // Handle workflow_dispatch with pull_number as input
       pull_number = parseInt(eventData.inputs.pull_number, 10);
       owner = eventData.repository?.owner?.login;
       repo = eventData.repository?.name;
@@ -76,7 +75,6 @@ async function getPRDetails(): Promise<PRDetails> {
 
   // If GITHUB_EVENT_PATH does not provide necessary information, fallback to input
   if (!pull_number) {
-    // Attempt to get pull number from workflow inputs (workflow_dispatch case)
     pull_number = parseInt(core.getInput("pull_number"));
     if (!pull_number) {
       console.error("Error: pull_number input is required but not provided.");
@@ -107,16 +105,57 @@ async function getPRDetails(): Promise<PRDetails> {
     pull_number,
   });
 
-  // console.log("PR details fetched from GitHub:", prResponse.data);
+  // Get unique commits for the pull request
+  const uniqueCommits = await getUniquePRCommits(pull_number, owner, repo, octokit);
+
   return {
     owner,
     repo,
     pull_number,
     title: prResponse.data.title ?? "",
     description: prResponse.data.body ?? "",
+    uniqueCommits
   };
 }
 
+async function getUniquePRCommits(pull_number: number, owner: string, repo: string, octokit: Octokit): Promise<string[]> {
+  // Get all open pull requests for the repository
+  const allPRs = await octokit.pulls.list({
+    owner,
+    repo,
+    state: "open",
+  });
+
+  // Collect commits of all open pull requests excluding the current one
+  const allOtherCommits = new Set<string>();
+  for (const pr of allPRs.data) {
+    if (pr.number !== pull_number) {
+      const commits = await octokit.pulls.listCommits({
+        owner,
+        repo,
+        pull_number: pr.number,
+      });
+
+      for (const commit of commits.data) {
+        allOtherCommits.add(commit.sha);
+      }
+    }
+  }
+
+  // Get the commits of the current pull request
+  const currentPRCommits = await octokit.pulls.listCommits({
+    owner,
+    repo,
+    pull_number,
+  });
+
+  // Filter out commits that are present in other open pull requests
+  const uniqueCommits = currentPRCommits.data
+      .filter(commit => !allOtherCommits.has(commit.sha))
+      .map(commit => commit.sha);
+
+  return uniqueCommits;
+}
 async function getDiff(
     owner: string,
     repo: string,
@@ -177,6 +216,10 @@ function createPrompt(file: File, chunk: Chunk, prDetails: PRDetails): string {
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
+- Context is important, so make sure to provide suggestions based on the context of the code and not to invent new context.
+- If there is no context, assume it is a part of a valid function or method.
+- Ensure you differentiate between code in different files.
+- If provide code suggestions, if they are single line wrap them in single backticks, if they are multi-line wrap them in triple backticks on separate lines.
 - If you do not know the context of the code, you can assume it is a part of a function or method, and you can assume the function signature or variable type is correct.
 - Write the comment in GitHub Markdown format.
 - Use the given description only for the overall context and only comment the code.

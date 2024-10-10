@@ -15610,21 +15610,19 @@ function getPRDetails() {
     var _a, _b, _c, _d, _e, _f, _g, _h;
     return __awaiter(this, void 0, void 0, function* () {
         console.log("Fetching PR details...");
+        const octokit = new rest_1.Octokit();
         let pull_number;
         let owner;
         let repo;
         // Check for event path and read event data
         if (process.env.GITHUB_EVENT_PATH) {
             const eventData = JSON.parse((0, fs_1.readFileSync)(process.env.GITHUB_EVENT_PATH, "utf8"));
-            // console.log("Event data:", eventData);
             if (eventData.pull_request) {
-                // Handle pull_request and synchronize events
                 pull_number = eventData.pull_request.number;
                 owner = (_b = (_a = eventData.repository) === null || _a === void 0 ? void 0 : _a.owner) === null || _b === void 0 ? void 0 : _b.login;
                 repo = (_c = eventData.repository) === null || _c === void 0 ? void 0 : _c.name;
             }
             else if (eventData.inputs && eventData.inputs.pull_number) {
-                // Handle workflow_dispatch with pull_number as input
                 pull_number = parseInt(eventData.inputs.pull_number, 10);
                 owner = (_e = (_d = eventData.repository) === null || _d === void 0 ? void 0 : _d.owner) === null || _e === void 0 ? void 0 : _e.login;
                 repo = (_f = eventData.repository) === null || _f === void 0 ? void 0 : _f.name;
@@ -15632,7 +15630,6 @@ function getPRDetails() {
         }
         // If GITHUB_EVENT_PATH does not provide necessary information, fallback to input
         if (!pull_number) {
-            // Attempt to get pull number from workflow inputs (workflow_dispatch case)
             pull_number = parseInt(core.getInput("pull_number"));
             if (!pull_number) {
                 console.error("Error: pull_number input is required but not provided.");
@@ -15658,14 +15655,51 @@ function getPRDetails() {
             repo,
             pull_number,
         });
-        // console.log("PR details fetched from GitHub:", prResponse.data);
+        // Get unique commits for the pull request
+        const uniqueCommits = yield getUniquePRCommits(pull_number, owner, repo, octokit);
         return {
             owner,
             repo,
             pull_number,
             title: (_g = prResponse.data.title) !== null && _g !== void 0 ? _g : "",
             description: (_h = prResponse.data.body) !== null && _h !== void 0 ? _h : "",
+            uniqueCommits
         };
+    });
+}
+function getUniquePRCommits(pull_number, owner, repo, octokit) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Get all open pull requests for the repository
+        const allPRs = yield octokit.pulls.list({
+            owner,
+            repo,
+            state: "open",
+        });
+        // Collect commits of all open pull requests excluding the current one
+        const allOtherCommits = new Set();
+        for (const pr of allPRs.data) {
+            if (pr.number !== pull_number) {
+                const commits = yield octokit.pulls.listCommits({
+                    owner,
+                    repo,
+                    pull_number: pr.number,
+                });
+                for (const commit of commits.data) {
+                    allOtherCommits.add(commit.sha);
+                }
+            }
+        }
+        // Get the commits of the current pull request
+        const currentPRCommits = yield octokit.pulls.listCommits({
+            owner,
+            repo,
+            pull_number,
+        });
+        // Filter out commits that are present in other open pull requests
+        const uniqueCommits = currentPRCommits.data
+            .filter(commit => !allOtherCommits.has(commit.sha))
+            .map(commit => commit.sha);
+        return uniqueCommits;
     });
 }
 function getDiff(owner, repo, pull_number) {
@@ -15724,6 +15758,10 @@ function createPrompt(file, chunk, prDetails) {
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
+- Context is important, so make sure to provide suggestions based on the context of the code and not to invent new context.
+- If there is no context, assume it is a part of a valid function or method.
+- Ensure you differentiate between code in different files.
+- If provide code suggestions, if they are single line wrap them in single backticks, if they are multi-line wrap them in triple backticks on separate lines.
 - If you do not know the context of the code, you can assume it is a part of a function or method, and you can assume the function signature or variable type is correct.
 - Write the comment in GitHub Markdown format.
 - Use the given description only for the overall context and only comment the code.
