@@ -238,10 +238,10 @@ function createPrompt(file: File, chunk: Chunk, prDetails: PRDetails): string {
 - Assume any variable you come across is defined, initialized and used correctly. (IMPORTANT)
 - Assume any function you come across is defined, works and used correctly. (IMPORTANT)
 - If code is removed, assume it was necessary to remove it unless you have reference to the full context and don't comment on it.
-- Don't comment on renaming variable names, function names, or parameter names, unless they are completely incorrect.
-- Don't comment on checking for null or undefined unless it is completely incorrect.
-- Don't comment on formatting.
-- Don't comment about checking for zero or invalid values.
+- STOP comment on renaming variable names, function names, or parameter names, unless they are completely incorrect.
+- STOP commenting on checking for null or undefined unless it is completely incorrect.
+- STOP commenting on formatting.
+- STOP commenting about checking for zero or invalid values.
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
