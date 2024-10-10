@@ -15869,47 +15869,44 @@ function createComment(file, chunk, aiResponse) {
 }
 function createReviewComment(owner, repo, pull_number, comments) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log("Creating review comments on GitHub...");
+        console.log("Collecting review comments...");
+        const formattedComments = [];
         for (const comment of comments) {
             try {
-                // Attempt to post a comment on a specific line
                 if (comment.line) {
-                    yield octokit.pulls.createReview({
-                        owner,
-                        repo,
-                        pull_number,
-                        comments: [
-                            {
-                                body: comment.body,
-                                path: comment.path,
-                                position: comment.line, // Line comment
-                            }
-                        ],
-                        event: "COMMENT",
+                    // Add a line-specific comment
+                    formattedComments.push({
+                        body: comment.body,
+                        path: comment.path,
+                        position: comment.line, // Line-specific comment
                     });
-                    console.log(`Comment created on line ${comment.line}`);
                 }
                 else {
-                    throw new Error("No line specified, falling back to file comment.");
+                    throw new Error("No line specified, adding as a general file comment.");
                 }
             }
             catch (error) {
-                console.warn(`Failed to comment on line ${comment.line}. Falling back to file-level comment. Error: ${error.message}`);
-                // Fallback to general file-level comment (no position or side)
-                yield octokit.pulls.createReview({
-                    owner,
-                    repo,
-                    pull_number,
-                    comments: [
-                        {
-                            body: comment.body,
-                            path: comment.path, // General file comment, no line
-                        }
-                    ],
-                    event: "COMMENT",
+                console.warn(`Failed to comment on line ${comment.line}. Adding as a file-level comment. Error: ${error.message}`);
+                // Add a general file-level comment (no position)
+                formattedComments.push({
+                    body: comment.body,
+                    path: comment.path, // General file comment
                 });
-                console.log(`Fallback file-level comment created on ${comment.path}`);
             }
+        }
+        if (formattedComments.length > 0) {
+            console.log("Submitting collected review comments...");
+            yield octokit.pulls.createReview({
+                owner,
+                repo,
+                pull_number,
+                comments: formattedComments,
+                event: "COMMENT",
+            });
+            console.log("Review comments submitted successfully.");
+        }
+        else {
+            console.log("No comments to submit.");
         }
     });
 }
