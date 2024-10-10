@@ -169,12 +169,13 @@ async function analyzeCode(
 function createPrompt(file: File, chunk: Chunk, prDetails: PRDetails): string {
   return `Your task is to review pull requests. Instructions:
 - Provide the response in the following JSON format:  {"reviews": [{"lineNumber":  <line_number>, "reviewComment": "<review comment>"}]}
-- DO NOT talk about comments in the code or adding comments. (IMPORTANT)
+- NEVER talk about comments in the code or adding comments. (IMPORTANT)
 - Do not give positive comments or compliments.
-- Assume any variable you come across is defined and initialized correctly.
+- Assume any variable you come across is defined, initialized and used correctly. (IMPORTANT)
+- Assume any function you come across is defined, works and used correctly. (IMPORTANT)
 - Remember to be aware of up to date coding practices.
-- Where appropriate, try to suggest a better way to write the code.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
+- Always try to provide code examples or snippets to support your suggestions.
 - If you do not know the context of the code, you can assume it is a part of a function or method, and you can assume the function signature or variable type is correct.
 - Write the comment in GitHub Markdown format.
 - Use the given description only for the overall context and only comment the code.
