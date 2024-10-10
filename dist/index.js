@@ -15789,7 +15789,10 @@ function createPrompt(file, chunk, prDetails) {
 - Do not give positive comments or compliments.
 - Assume any variable you come across is defined, initialized and used correctly. (IMPORTANT)
 - Assume any function you come across is defined, works and used correctly. (IMPORTANT)
-- If code is removed, assume it was necessary to remove it unless you have reference to the full context.
+- If code is removed, assume it was necessary to remove it unless you have reference to the full context and don't comment on it.
+- Don't comment on variable names, function names, or parameter names, unless they are completely incorrect.
+- Don't comment on checking for null or undefined unless it is completely incorrect.
+- Don't comment on formatting.
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
@@ -15936,7 +15939,7 @@ function createReviewComment(owner, repo, pull_number, comments) {
                 // Step 3: Fallback to general file-level comments if no valid diff position
                 formattedComments.push({
                     body: comment.body,
-                    path: comment.path, // General file comment, no position
+                    path: comment.path, // General file comment, omit position
                 });
                 console.warn(`Invalid or missing line number for ${comment.path}, adding as a file-level comment.`);
             }
@@ -15949,9 +15952,8 @@ function createReviewComment(owner, repo, pull_number, comments) {
                 repo,
                 pull_number,
                 comments: formattedComments.map(comment => {
-                    // Only include 'position' if it's valid
-                    if (comment.position !== undefined) {
-                        return comment;
+                    if (comment.position !== undefined && comment.position !== null) {
+                        return comment; // Line-specific comment with position
                     }
                     else {
                         const { position } = comment, rest = __rest(comment, ["position"]); // Remove 'position' for general comments
