@@ -15869,31 +15869,65 @@ function createComment(file, chunk, aiResponse) {
 }
 function createReviewComment(owner, repo, pull_number, comments) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log("Collecting review comments...");
-        const formattedComments = [];
-        for (const comment of comments) {
-            try {
-                if (comment.line) {
-                    // Add a line-specific comment
-                    formattedComments.push({
-                        body: comment.body,
-                        path: comment.path,
-                        position: comment.line, // Line-specific comment
-                    });
+        console.log("Fetching pull request files...");
+        // Step 1: Fetch files and their diff information from the pull request
+        const prFiles = yield octokit.pulls.listFiles({
+            owner,
+            repo,
+            pull_number,
+        });
+        const fileDiffs = prFiles.data;
+        // A helper function to check if a line number is within the diff of a file
+        const isValidLine = (path, line) => {
+            if (!line)
+                return false;
+            const fileDiff = fileDiffs.find(file => file.filename === path);
+            if (!fileDiff || !fileDiff.patch)
+                return false;
+            // Extract diff information for the file
+            const diffLines = fileDiff.patch.split("\n");
+            // Validate that the line number is within the diff
+            let currentLineInDiff = 0;
+            for (let i = 0; i < diffLines.length; i++) {
+                const diffLine = diffLines[i];
+                // Lines that start with @@ indicate a new hunk with starting line numbers
+                if (diffLine.startsWith("@@")) {
+                    const match = diffLine.match(/@@ \-(\d+),\d+ \+(\d+),\d+ @@/);
+                    if (match) {
+                        const startingLine = parseInt(match[2], 10);
+                        currentLineInDiff = startingLine;
+                    }
                 }
-                else {
-                    throw new Error("No line specified, adding as a general file comment.");
+                else if (!diffLine.startsWith("-")) {
+                    // Increment the line count for lines that are not removed (starting with "-")
+                    currentLineInDiff++;
+                }
+                if (currentLineInDiff === line) {
+                    return true; // Line number is valid within this diff
                 }
             }
-            catch (error) {
-                console.warn(`Failed to comment on line ${comment.line}. Adding as a file-level comment. Error: ${error.message}`);
-                // Add a general file-level comment (no position)
+            return false;
+        };
+        const formattedComments = [];
+        for (const comment of comments) {
+            if (comment.line && isValidLine(comment.path, comment.line)) {
+                // Step 2: Add valid line-specific comments
+                formattedComments.push({
+                    body: comment.body,
+                    path: comment.path,
+                    position: comment.line, // Line-specific comment
+                });
+            }
+            else {
+                // Step 3: Fallback to general file-level comments for invalid line numbers
                 formattedComments.push({
                     body: comment.body,
                     path: comment.path, // General file comment
                 });
+                console.warn(`Invalid or missing line number for ${comment.path}, adding as a file-level comment.`);
             }
         }
+        // Step 4: Submit the review with all collected comments
         if (formattedComments.length > 0) {
             console.log("Submitting collected review comments...");
             yield octokit.pulls.createReview({
