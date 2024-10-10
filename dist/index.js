@@ -15649,57 +15649,75 @@ function getPRDetails() {
             process.exit(1);
         }
         console.log(`Repository details: owner=${owner}, repo=${repo}, pull_number=${pull_number}`);
-        // Fetch pull request details using octokit
-        const prResponse = yield octokit.pulls.get({
-            owner,
-            repo,
-            pull_number,
-        });
-        // Get unique commits for the pull request
-        const uniqueCommits = yield getUniquePRCommits(pull_number, owner, repo, octokit);
-        return {
-            owner,
-            repo,
-            pull_number,
-            title: (_g = prResponse.data.title) !== null && _g !== void 0 ? _g : "",
-            description: (_h = prResponse.data.body) !== null && _h !== void 0 ? _h : "",
-            uniqueCommits
-        };
+        try {
+            // Fetch pull request details using octokit
+            const prResponse = yield octokit.pulls.get({
+                owner,
+                repo,
+                pull_number,
+            });
+            console.log("Successfully fetched PR details.");
+            // Get unique commits for the pull request
+            const uniqueCommits = yield getUniquePRCommits(pull_number, owner, repo, octokit);
+            return {
+                owner,
+                repo,
+                pull_number,
+                title: (_g = prResponse.data.title) !== null && _g !== void 0 ? _g : "",
+                description: (_h = prResponse.data.body) !== null && _h !== void 0 ? _h : "",
+                uniqueCommits,
+            };
+        }
+        catch (error) {
+            console.error("Error fetching PR details:", error);
+            if (error.status === 404) {
+                console.error(`Error: Pull request #${pull_number} not found in repository ${owner}/${repo}.`);
+            }
+            process.exit(1);
+        }
     });
 }
 function getUniquePRCommits(pull_number, owner, repo, octokit) {
     return __awaiter(this, void 0, void 0, function* () {
-        // Get all open pull requests for the repository
-        const allPRs = yield octokit.pulls.list({
-            owner,
-            repo,
-            state: "open",
-        });
-        // Collect commits of all open pull requests excluding the current one
-        const allOtherCommits = new Set();
-        for (const pr of allPRs.data) {
-            if (pr.number !== pull_number) {
-                const commits = yield octokit.pulls.listCommits({
-                    owner,
-                    repo,
-                    pull_number: pr.number,
-                });
-                for (const commit of commits.data) {
-                    allOtherCommits.add(commit.sha);
+        console.log(`Fetching unique commits for PR #${pull_number}...`);
+        try {
+            // Get all open pull requests for the repository
+            const allPRs = yield octokit.pulls.list({
+                owner,
+                repo,
+                state: "open",
+            });
+            // Collect commits of all open pull requests excluding the current one
+            const allOtherCommits = new Set();
+            for (const pr of allPRs.data) {
+                if (pr.number !== pull_number) {
+                    const commits = yield octokit.pulls.listCommits({
+                        owner,
+                        repo,
+                        pull_number: pr.number,
+                    });
+                    for (const commit of commits.data) {
+                        allOtherCommits.add(commit.sha);
+                    }
                 }
             }
+            // Get the commits of the current pull request
+            const currentPRCommits = yield octokit.pulls.listCommits({
+                owner,
+                repo,
+                pull_number,
+            });
+            // Filter out commits that are present in other open pull requests
+            const uniqueCommits = currentPRCommits.data
+                .filter(commit => !allOtherCommits.has(commit.sha))
+                .map(commit => commit.sha);
+            console.log(`Successfully fetched unique commits for PR #${pull_number}.`);
+            return uniqueCommits;
         }
-        // Get the commits of the current pull request
-        const currentPRCommits = yield octokit.pulls.listCommits({
-            owner,
-            repo,
-            pull_number,
-        });
-        // Filter out commits that are present in other open pull requests
-        const uniqueCommits = currentPRCommits.data
-            .filter(commit => !allOtherCommits.has(commit.sha))
-            .map(commit => commit.sha);
-        return uniqueCommits;
+        catch (error) {
+            console.error("Error fetching unique commits:", error);
+            throw error; // Let the caller handle the error
+        }
     });
 }
 function getDiff(owner, repo, pull_number) {
