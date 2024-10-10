@@ -358,19 +358,19 @@ async function createReviewComment(
             {
               body: comment.body,
               path: comment.path,
-              position: comment.line, // Assume position maps to the line in the diff
+              position: comment.line, // Line comment
             }
           ],
           event: "COMMENT",
         });
+        console.log(`Comment created on line ${comment.line}`);
       } else {
         throw new Error("No line specified, falling back to file comment.");
       }
-      console.log(`Comment created on line ${comment.line}`);
     } catch (error : any) {
       console.warn(`Failed to comment on line ${comment.line}. Falling back to file-level comment. Error: ${error.message}`);
 
-      // Fallback to general file-level comment
+      // Fallback to general file-level comment (no position or side)
       await octokit.pulls.createReview({
         owner,
         repo,
@@ -378,8 +378,7 @@ async function createReviewComment(
         comments: [
           {
             body: comment.body,
-            path: comment.path,
-            side: "RIGHT", // General comment on the file
+            path: comment.path, // General file comment, no line
           }
         ],
         event: "COMMENT",
@@ -388,7 +387,6 @@ async function createReviewComment(
     }
   }
 }
-
 
 async function main() {
   console.log("Starting main function...");
