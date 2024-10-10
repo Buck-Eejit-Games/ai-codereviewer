@@ -15687,37 +15687,53 @@ function getUniquePRCommits(pull_number, owner, repo, octokit) {
     return __awaiter(this, void 0, void 0, function* () {
         console.log(`Fetching unique commits for PR #${pull_number}...`);
         try {
-            // Get all open pull requests for the repository
-            const allPRs = yield octokit.pulls.list({
-                owner,
-                repo,
-                state: "open",
-            });
-            // Collect commits of all open pull requests excluding the current one
-            const allOtherCommits = new Set();
-            for (const pr of allPRs.data) {
-                if (pr.number !== pull_number) {
-                    const commits = yield octokit.pulls.listCommits({
-                        owner,
-                        repo,
-                        pull_number: pr.number,
-                    });
-                    for (const commit of commits.data) {
-                        allOtherCommits.add(commit.sha);
-                    }
-                }
-            }
+            const reviewerUsername = "Peadar"; // Hardcoded reviewer username
             // Get the commits of the current pull request
             const currentPRCommits = yield octokit.pulls.listCommits({
                 owner,
                 repo,
                 pull_number,
             });
-            // Filter out commits that are present in other open pull requests
-            const uniqueCommits = currentPRCommits.data
-                .filter(commit => !allOtherCommits.has(commit.sha))
-                .map(commit => commit.sha);
-            console.log(`Successfully fetched unique commits for PR #${pull_number}.`);
+            const currentCommitShas = currentPRCommits.data.map((commit) => commit.sha);
+            console.log(`Current PR commit SHAs:`, currentCommitShas);
+            // Get all other open pull requests for the repository
+            const allPRs = yield octokit.pulls.list({
+                owner,
+                repo,
+                state: "open",
+            });
+            const reviewedCommitShas = new Set();
+            // Collect commits of all other open pull requests reviewed by the specific user
+            for (const pr of allPRs.data) {
+                if (pr.number !== pull_number) {
+                    // Step 1: Check if the specified user has reviewed this PR
+                    const reviews = yield octokit.pulls.listReviews({
+                        owner,
+                        repo,
+                        pull_number: pr.number,
+                    });
+                    const hasUserReviewed = reviews.data.some((review) => { var _a, _b; return (_b = (_a = review.user) === null || _a === void 0 ? void 0 : _a.login) === null || _b === void 0 ? void 0 : _b.includes(reviewerUsername); });
+                    if (hasUserReviewed) {
+                        console.log(`User ${reviewerUsername} has reviewed PR #${pr.number}`);
+                        // Step 2: Get commits of this reviewed PR
+                        const commits = yield octokit.pulls.listCommits({
+                            owner,
+                            repo,
+                            pull_number: pr.number,
+                        });
+                        for (const commit of commits.data) {
+                            reviewedCommitShas.add(commit.sha);
+                        }
+                    }
+                    else {
+                        console.log(`User ${reviewerUsername} has NOT reviewed PR #${pr.number}`);
+                    }
+                }
+            }
+            console.log(`Reviewed commits by user ${reviewerUsername}:`, Array.from(reviewedCommitShas));
+            // Step 3: Filter out commits that have already been reviewed by the specified user
+            const uniqueCommits = currentCommitShas.filter((sha) => !reviewedCommitShas.has(sha));
+            console.log(`Unique commits for PR #${pull_number}:`, uniqueCommits);
             return uniqueCommits;
         }
         catch (error) {
