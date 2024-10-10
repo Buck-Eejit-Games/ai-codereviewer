@@ -342,18 +342,53 @@ async function createReviewComment(
     owner: string,
     repo: string,
     pull_number: number,
-    comments: Array<{ body: string; path: string; line: number }>
+    comments: Array<{ body: string; path: string; line?: number }>
 ): Promise<void> {
-  console.log("Creating review comment on GitHub...");
-  await octokit.pulls.createReview({
-    owner,
-    repo,
-    pull_number,
-    comments,
-    event: "COMMENT",
-  });
-  console.log("Review comment created.");
+  console.log("Creating review comments on GitHub...");
+
+  for (const comment of comments) {
+    try {
+      // Attempt to post a comment on a specific line
+      if (comment.line) {
+        await octokit.pulls.createReview({
+          owner,
+          repo,
+          pull_number,
+          comments: [
+            {
+              body: comment.body,
+              path: comment.path,
+              position: comment.line, // Assume position maps to the line in the diff
+            }
+          ],
+          event: "COMMENT",
+        });
+      } else {
+        throw new Error("No line specified, falling back to file comment.");
+      }
+      console.log(`Comment created on line ${comment.line}`);
+    } catch (error : any) {
+      console.warn(`Failed to comment on line ${comment.line}. Falling back to file-level comment. Error: ${error.message}`);
+
+      // Fallback to general file-level comment
+      await octokit.pulls.createReview({
+        owner,
+        repo,
+        pull_number,
+        comments: [
+          {
+            body: comment.body,
+            path: comment.path,
+            side: "RIGHT", // General comment on the file
+          }
+        ],
+        event: "COMMENT",
+      });
+      console.log(`Fallback file-level comment created on ${comment.path}`);
+    }
+  }
 }
+
 
 async function main() {
   console.log("Starting main function...");

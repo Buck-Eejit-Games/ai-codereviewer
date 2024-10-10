@@ -15869,15 +15869,49 @@ function createComment(file, chunk, aiResponse) {
 }
 function createReviewComment(owner, repo, pull_number, comments) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log("Creating review comment on GitHub...");
-        yield octokit.pulls.createReview({
-            owner,
-            repo,
-            pull_number,
-            comments,
-            event: "COMMENT",
-        });
-        console.log("Review comment created.");
+        console.log("Creating review comments on GitHub...");
+        for (const comment of comments) {
+            try {
+                // Attempt to post a comment on a specific line
+                if (comment.line) {
+                    yield octokit.pulls.createReview({
+                        owner,
+                        repo,
+                        pull_number,
+                        comments: [
+                            {
+                                body: comment.body,
+                                path: comment.path,
+                                position: comment.line, // Assume position maps to the line in the diff
+                            }
+                        ],
+                        event: "COMMENT",
+                    });
+                }
+                else {
+                    throw new Error("No line specified, falling back to file comment.");
+                }
+                console.log(`Comment created on line ${comment.line}`);
+            }
+            catch (error) {
+                console.warn(`Failed to comment on line ${comment.line}. Falling back to file-level comment. Error: ${error.message}`);
+                // Fallback to general file-level comment
+                yield octokit.pulls.createReview({
+                    owner,
+                    repo,
+                    pull_number,
+                    comments: [
+                        {
+                            body: comment.body,
+                            path: comment.path,
+                            side: "RIGHT", // General comment on the file
+                        }
+                    ],
+                    event: "COMMENT",
+                });
+                console.log(`Fallback file-level comment created on ${comment.path}`);
+            }
+        }
     });
 }
 function main() {
