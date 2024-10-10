@@ -402,7 +402,8 @@ async function createReviewComment(
   for (const comment of comments) {
     const diffPosition = getDiffPosition(comment.path, comment.line);
 
-    if (diffPosition !== null) {
+    if (diffPosition !== null && diffPosition !== undefined) {
+      console.log(`Adding comment "${comment.body}" to ${comment.path} at line ${comment.line} with diff position ${diffPosition}`);
       // Step 2: Add valid line-specific comments with diff position
       formattedComments.push({
         body: comment.body,
@@ -410,12 +411,13 @@ async function createReviewComment(
         position: diffPosition, // Use diff position
       });
     } else {
+      console.log(`Invalid or missing line number for ${comment.path}, skipping.`);
       // Step 3: Fallback to general file-level comments if no valid diff position
       formattedComments.push({
         body: comment.body,
         path: comment.path, // General file comment, omit position
       });
-      console.warn(`Invalid or missing line number for ${comment.path}, adding as a file-level comment.`);
+      console.warn(`Invalid or missing line number (${comment.line}) for comment "${comment.body}" at ${comment.path}, adding as a file-level comment.`);
     }
   }
 
@@ -426,19 +428,12 @@ async function createReviewComment(
       owner,
       repo,
       pull_number,
-      comments: formattedComments.map(comment => {
-        if (comment.position !== undefined && comment.position !== null) {
-          return comment; // Line-specific comment with position
-        } else {
-          const { position, ...rest } = comment; // Remove 'position' for general comments
-          return rest;
-        }
-      }),
+      comments: formattedComments,
       event: "COMMENT",
     });
     console.log("Review comments submitted successfully.");
   } else {
-    console.log("No comments to submit.");
+    console.log("No valid comments to submit.");
   }
 }
 

@@ -15566,17 +15566,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __rest = (this && this.__rest) || function (s, e) {
-    var t = {};
-    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-        t[p] = s[p];
-    if (s != null && typeof Object.getOwnPropertySymbols === "function")
-        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
-            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-                t[p[i]] = s[p[i]];
-        }
-    return t;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -15928,7 +15917,8 @@ function createReviewComment(owner, repo, pull_number, comments) {
         const formattedComments = [];
         for (const comment of comments) {
             const diffPosition = getDiffPosition(comment.path, comment.line);
-            if (diffPosition !== null) {
+            if (diffPosition !== null && diffPosition !== undefined) {
+                console.log(`Adding comment "${comment.body}" to ${comment.path} at line ${comment.line} with diff position ${diffPosition}`);
                 // Step 2: Add valid line-specific comments with diff position
                 formattedComments.push({
                     body: comment.body,
@@ -15937,12 +15927,13 @@ function createReviewComment(owner, repo, pull_number, comments) {
                 });
             }
             else {
+                console.log(`Invalid or missing line number for ${comment.path}, skipping.`);
                 // Step 3: Fallback to general file-level comments if no valid diff position
                 formattedComments.push({
                     body: comment.body,
                     path: comment.path, // General file comment, omit position
                 });
-                console.warn(`Invalid or missing line number for ${comment.path}, adding as a file-level comment.`);
+                console.warn(`Invalid or missing line number (${comment.line}) for comment "${comment.body}" at ${comment.path}, adding as a file-level comment.`);
             }
         }
         // Step 4: Submit the review with all collected comments
@@ -15952,21 +15943,13 @@ function createReviewComment(owner, repo, pull_number, comments) {
                 owner,
                 repo,
                 pull_number,
-                comments: formattedComments.map(comment => {
-                    if (comment.position !== undefined && comment.position !== null) {
-                        return comment; // Line-specific comment with position
-                    }
-                    else {
-                        const { position } = comment, rest = __rest(comment, ["position"]); // Remove 'position' for general comments
-                        return rest;
-                    }
-                }),
+                comments: formattedComments,
                 event: "COMMENT",
             });
             console.log("Review comments submitted successfully.");
         }
         else {
-            console.log("No comments to submit.");
+            console.log("No valid comments to submit.");
         }
     });
 }
