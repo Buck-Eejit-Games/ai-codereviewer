@@ -409,7 +409,7 @@ async function createReviewComment(
       // Step 3: Fallback to general file-level comments if no valid diff position
       formattedComments.push({
         body: comment.body,
-        path: comment.path, // General file comment
+        path: comment.path, // General file comment, no position
       });
       console.warn(`Invalid or missing line number for ${comment.path}, adding as a file-level comment.`);
     }
@@ -424,8 +424,12 @@ async function createReviewComment(
       pull_number,
       comments: formattedComments.map(comment => {
         // Only include 'position' if it's valid
-        const { position, ...rest } = comment;
-        return position ? { ...rest, position } : rest;
+        if (comment.position !== undefined) {
+          return comment;
+        } else {
+          const { position, ...rest } = comment; // Remove 'position' for general comments
+          return rest;
+        }
       }),
       event: "COMMENT",
     });
