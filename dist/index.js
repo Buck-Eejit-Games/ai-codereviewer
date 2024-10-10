@@ -15720,6 +15720,7 @@ function createPrompt(file, chunk, prDetails) {
 - Do not give positive comments or compliments.
 - Assume any variable you come across is defined, initialized and used correctly. (IMPORTANT)
 - Assume any function you come across is defined, works and used correctly. (IMPORTANT)
+- If code is removed, assume it was necessary to remove it unless you have reference to the full context.
 - Remember to be aware of up to date coding practices.
 - Provide suggestions ONLY if there is something to improve, and provide reasons for it, otherwise "reviews" should be an empty array.
 - Always try to provide code examples or snippets to support your suggestions.
