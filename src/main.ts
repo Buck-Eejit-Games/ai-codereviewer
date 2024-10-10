@@ -408,14 +408,15 @@ async function createReviewComment(
       formattedComments.push({
         body: comment.body,
         path: comment.path,
-        position: diffPosition, // Use diff position
+        position: diffPosition // Use diff position
       });
     } else {
-      console.log(`Invalid or missing line number for ${comment.path}, skipping.`);
+      //console.log(`Invalid or missing line number for ${comment.path}, skipping.`);
       // Step 3: Fallback to general file-level comments if no valid diff position
       formattedComments.push({
         body: comment.body,
         path: comment.path, // General file comment, omit position
+        position: 1
       });
       console.warn(`Invalid or missing line number (${comment.line}) for comment "${comment.body}" at ${comment.path}, adding as a file-level comment.`);
     }
