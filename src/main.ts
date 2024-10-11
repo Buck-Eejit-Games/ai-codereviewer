@@ -735,6 +735,68 @@ async function getDiffAgainstTestingBranch(
   }
 }
 
+async function getDiffExcludingTestingBranch(
+    owner: string,
+    repo: string,
+    featureBranch: string,
+    baseBranch: string = "testing"
+): Promise<string | null> {
+  console.log(`Fetching diff for feature branch "${featureBranch}" excluding commits from base branch "${baseBranch}"...`);
+
+  try {
+    // Step 1: Compare the "testing" branch with the feature branch to get unique commits
+    const comparison = await octokit.repos.compareCommits({
+      owner,
+      repo,
+      base: baseBranch,
+      head: featureBranch,
+    });
+
+    const uniqueCommits = comparison.data.commits.map(commit => commit.sha);
+    if (uniqueCommits.length === 0) {
+      console.log("No unique commits found between the feature branch and the testing branch.");
+      return null;
+    }
+
+    // Step 2: Get the parent of the first unique commit
+    const firstCommitSha = uniqueCommits[0];
+    console.log(`Fetching parent commit for the first unique commit: ${firstCommitSha}...`);
+
+    const commitDetails = await octokit.repos.getCommit({
+      owner,
+      repo,
+      ref: firstCommitSha,
+    });
+
+    const parentSha = commitDetails.data.parents[0]?.sha;
+    if (!parentSha) {
+      console.error("Error: Unable to determine parent commit for the first unique commit.");
+      return null;
+    }
+
+    console.log(`Parent commit of the first unique commit is: ${parentSha}`);
+
+    // Step 3: Use the parent of the first unique commit as the base and the last unique commit as the head
+    const lastCommitSha = uniqueCommits[uniqueCommits.length - 1];
+    console.log(`Comparing commits between parent of first unique commit (${parentSha}) and last unique commit (${lastCommitSha})...`);
+
+    const response = await octokit.repos.compareCommits({
+      owner,
+      repo,
+      base: parentSha,
+      head: lastCommitSha,
+      headers: {
+        accept: "application/vnd.github.v3.diff",
+      },
+    });
+
+    return String(response.data);
+  } catch (error: any) {
+    console.error("Error fetching cumulative diff excluding testing branch commits:", error);
+    return null;
+  }
+}
+
 async function main() {
   console.log("Starting main function...");
   const prDetails = await getPRDetails();
@@ -745,7 +807,8 @@ async function main() {
   console.log(`Event action: ${process.env.GITHUB_EVENT_NAME}`);
 
   // Always compare the feature branch against "testing" to get the relevant diff
-  const diff = await getDiffAgainstTestingBranch(prDetails.owner, prDetails.repo, featureBranch, baseBranch);
+  //const diff = await getDiffAgainstTestingBranch(prDetails.owner, prDetails.repo, featureBranch, baseBranch);
+  const diff = await getDiffExcludingTestingBranch(prDetails.owner, prDetails.repo, featureBranch);
 
   if (!diff) {
     console.log("No diff found");
