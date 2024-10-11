@@ -48,6 +48,7 @@ interface PRDetails {
   title: string;
   description: string;
   uniqueCommits: string[];
+  branchName: string;
 }
 
 async function getPRDetails(): Promise<PRDetails> {
@@ -59,7 +60,7 @@ async function getPRDetails(): Promise<PRDetails> {
     console.error("Error: GITHUB_TOKEN is required but not provided.");
     process.exit(1);
   }
-  const octokit = new Octokit({ auth: token });
+  const octokit = new Octokit({auth: token});
 
   let pull_number: number | undefined;
   let owner: string | undefined;
@@ -124,6 +125,7 @@ async function getPRDetails(): Promise<PRDetails> {
       title: prResponse.data.title ?? "",
       description: prResponse.data.body ?? "",
       uniqueCommits,
+      branchName: prResponse.data.head.ref // Extract the feature branch name from PR details
     };
   } catch (error: any) {
     console.error("Error fetching PR details:", error);
@@ -133,6 +135,90 @@ async function getPRDetails(): Promise<PRDetails> {
     process.exit(1);
   }
 }
+
+// async function getPRDetails(): Promise<PRDetails> {
+//   console.log("Fetching PR details...");
+//
+//   // Authenticate Octokit using GITHUB_TOKEN
+//   const token = core.getInput("GITHUB_TOKEN") || process.env.GITHUB_TOKEN;
+//   if (!token) {
+//     console.error("Error: GITHUB_TOKEN is required but not provided.");
+//     process.exit(1);
+//   }
+//   const octokit = new Octokit({ auth: token });
+//
+//   let pull_number: number | undefined;
+//   let owner: string | undefined;
+//   let repo: string | undefined;
+//
+//   // Check for event path and read event data
+//   if (process.env.GITHUB_EVENT_PATH) {
+//     const eventData = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+//     if (eventData.pull_request) {
+//       pull_number = eventData.pull_request.number;
+//       owner = eventData.repository?.owner?.login;
+//       repo = eventData.repository?.name;
+//     } else if (eventData.inputs && eventData.inputs.pull_number) {
+//       pull_number = parseInt(eventData.inputs.pull_number, 10);
+//       owner = eventData.repository?.owner?.login;
+//       repo = eventData.repository?.name;
+//     }
+//   }
+//
+//   // If GITHUB_EVENT_PATH does not provide necessary information, fallback to input
+//   if (!pull_number) {
+//     pull_number = parseInt(core.getInput("pull_number"));
+//     if (!pull_number) {
+//       console.error("Error: pull_number input is required but not provided.");
+//       process.exit(1);
+//     }
+//   }
+//
+//   // Get owner and repo from GITHUB_REPOSITORY environment variable if not set
+//   if (!owner || !repo) {
+//     if (!process.env.GITHUB_REPOSITORY) {
+//       console.error("Error: GITHUB_REPOSITORY is not defined.");
+//       process.exit(1);
+//     }
+//     [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+//   }
+//
+//   if (!owner || !repo) {
+//     console.error("Error: Unable to determine repository owner and name.");
+//     process.exit(1);
+//   }
+//
+//   console.log(`Repository details: owner=${owner}, repo=${repo}, pull_number=${pull_number}`);
+//
+//   try {
+//     // Fetch pull request details using octokit
+//     const prResponse = await octokit.pulls.get({
+//       owner,
+//       repo,
+//       pull_number,
+//     });
+//
+//     console.log("Successfully fetched PR details.");
+//
+//     // Get unique commits for the pull request
+//     const uniqueCommits = await getUniquePRCommits(pull_number, owner, repo, octokit);
+//
+//     return {
+//       owner,
+//       repo,
+//       pull_number,
+//       title: prResponse.data.title ?? "",
+//       description: prResponse.data.body ?? "",
+//       uniqueCommits,
+//     };
+//   } catch (error: any) {
+//     console.error("Error fetching PR details:", error);
+//     if (error.status === 404) {
+//       console.error(`Error: Pull request #${pull_number} not found in repository ${owner}/${repo}.`);
+//     }
+//     process.exit(1);
+//   }
+// }
 
 async function getUniquePRCommits(pull_number: number, owner: string, repo: string, octokit: Octokit): Promise<string[]> {
   console.log(`Fetching unique commits for PR #${pull_number}...`);
@@ -204,39 +290,98 @@ async function getUniquePRCommits(pull_number: number, owner: string, repo: stri
   }
 }
 
-async function getDiff(owner: string, repo: string, pull_number: number): Promise<string | null> {
-  console.log("Fetching diff for PR...");
+// async function getDiff(owner: string, repo: string, pull_number: number): Promise<string | null> {
+//   console.log("Fetching diff for PR...");
+//
+//   try {
+//     const pullRequest = await octokit.pulls.get({
+//       owner,
+//       repo,
+//       pull_number,
+//     });
+//
+//     // Get base and head SHAs of the PR
+//     const baseSha = pullRequest.data.base.sha;
+//     const headSha = pullRequest.data.head.sha;
+//
+//     console.log(`Comparing commits between base: ${baseSha} and head: ${headSha}`);
+//
+//     const response = await octokit.repos.compareCommits({
+//       owner,
+//       repo,
+//       base: baseSha,
+//       head: headSha,
+//       headers: {
+//         accept: "application/vnd.github.v3.diff",
+//       },
+//     });
+//
+//     return String(response.data);
+//   } catch (error: any) {
+//     console.error("Error fetching PR diff:", error);
+//     return null;
+//   }
+// }
+
+async function getDiff(
+    owner: string,
+    repo: string,
+    pull_number: number
+): Promise<string | null> {
+  console.log("Fetching commits for PR to create a filtered diff...");
 
   try {
-    const pullRequest = await octokit.pulls.get({
+    // Step 1: Get the list of commits in the PR
+    const pullCommits = await octokit.pulls.listCommits({
       owner,
       repo,
       pull_number,
     });
 
-    // Get base and head SHAs of the PR
-    const baseSha = pullRequest.data.base.sha;
-    const headSha = pullRequest.data.head.sha;
+    const baseBranch = "testing"; // This is your base branch name, e.g., "testing"
 
-    console.log(`Comparing commits between base: ${baseSha} and head: ${headSha}`);
-
-    const response = await octokit.repos.compareCommits({
-      owner,
-      repo,
-      base: baseSha,
-      head: headSha,
-      headers: {
-        accept: "application/vnd.github.v3.diff",
-      },
+    // Step 2: Identify merge commits that are from the base branch ("testing")
+    const mergeCommits = pullCommits.data.filter(commit => {
+      return commit.commit.message.startsWith("Merge branch '" + baseBranch + "'");
     });
 
-    return String(response.data);
+    if (mergeCommits.length > 0) {
+      console.log("Found merge commits from the base branch:", mergeCommits.map(c => c.sha));
+    }
+
+    // Step 3: Filter out the commits that are merge commits from "testing"
+    const filteredCommits = pullCommits.data.filter(commit => {
+      return !mergeCommits.includes(commit);
+    });
+
+    console.log("Filtered commits (excluding merges from base branch):", filteredCommits.map(c => c.sha));
+
+    if (filteredCommits.length === 0) {
+      console.log("No unique commits found in this PR.");
+      return null;
+    }
+
+    // Step 4: Compare each commit individually to create a diff
+    let diff = "";
+    for (const commit of filteredCommits) {
+      const response = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha,
+        headers: {
+          accept: "application/vnd.github.v3.diff",
+        },
+      });
+
+      diff += String(response.data) + "\n";
+    }
+
+    return diff;
   } catch (error: any) {
-    console.error("Error fetching PR diff:", error);
+    console.error("Error fetching filtered diff:", error);
     return null;
   }
 }
-
 
 async function analyzeCode(
     parsedDiff: File[],
@@ -478,43 +623,129 @@ async function createReviewComment(
   }
 }
 
-async function main() {
-  console.log("Starting main function...");
-  const prDetails = await getPRDetails();
-  let diff: string | null;
-  const eventData = JSON.parse(
-      readFileSync(process.env.GITHUB_EVENT_PATH ?? "", "utf8")
-  );
+// async function main() {
+//   console.log("Starting main function...");
+//   const prDetails = await getPRDetails();
+//   let diff: string | null;
+//   const eventData = JSON.parse(
+//       readFileSync(process.env.GITHUB_EVENT_PATH ?? "", "utf8")
+//   );
+//
+//   console.log("Event action:", process.env.GITHUB_EVENT_NAME);
+//   console.log(process.env.GITHUB_EVENT_NAME === "workflow_dispatch");
+//
+//   if (eventData.action === "opened" || process.env.GITHUB_EVENT_NAME === "workflow_dispatch") {
+//     diff = await getDiff(
+//         prDetails.owner,
+//         prDetails.repo,
+//         prDetails.pull_number
+//     );
+//   } else if (eventData.action === "synchronize") {
+//     const newBaseSha = eventData.before;
+//     const newHeadSha = eventData.after;
+//
+//     console.log("Fetching diff for synchronized event...");
+//     const response = await octokit.repos.compareCommits({
+//       headers: {
+//         accept: "application/vnd.github.v3.diff",
+//       },
+//       owner: prDetails.owner,
+//       repo: prDetails.repo,
+//       base: newBaseSha,
+//       head: newHeadSha,
+//     });
+//
+//     diff = String(response.data);
+//   } else {
+//     console.log("Unsupported event:", process.env.GITHUB_EVENT_NAME);
+//     return;
+//   }
+//
+//   if (!diff) {
+//     console.log("No diff found");
+//     return;
+//   }
+//
+//   console.log("Diff found, parsing...");
+//   const parsedDiff = parseDiff(diff);
+//   parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
+//   //console.log("Parsed Diff:", parsedDiff); // Log parsed diff
+//
+//   // Get include patterns or use a default value if not provided
+//   let includePatternsInput: string = core.getInput("include") || "**/*.cs,**/*.yml";
+//   includePatternsInput = includePatternsInput.trim() ? includePatternsInput : "**/*.cs,**/*.yml";
+//
+//   const includePatterns = includePatternsInput
+//       .split(",")
+//       .map((s) => s.trim())
+//       .filter((s) => s.length > 0);
+//
+//   console.log("Include patterns:", includePatterns);
+//
+//   const filteredDiff = parsedDiff.filter((file) => {
+//     const normalizedPath = path.normalize(file.to ?? "");
+//     const match = includePatterns.some((pattern) => minimatch(normalizedPath, pattern));
+//     //console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
+//     return match;
+//   });
+//   //console.log("Filtered Diff:", filteredDiff); // Log filtered diff
+//
+//   if (filteredDiff.length === 0) {
+//     console.log("No files matched the include patterns.");
+//     return;
+//   }
+//
+//   const comments = await analyzeCode(filteredDiff, prDetails);
+//   if (comments.length > 0) {
+//     console.log("Comments generated:", comments);
+//     await createReviewComment(
+//         prDetails.owner,
+//         prDetails.repo,
+//         prDetails.pull_number,
+//         comments
+//     );
+//   } else {
+//     console.log("No comments generated.");
+//   }
+// }
 
-  console.log("Event action:", process.env.GITHUB_EVENT_NAME);
-  console.log(process.env.GITHUB_EVENT_NAME === "workflow_dispatch");
+async function getDiffAgainstTestingBranch(
+    owner: string,
+    repo: string,
+    featureBranch: string,
+    baseBranch: string = "testing"
+): Promise<string | null> {
+  console.log(`Fetching diff for feature branch "${featureBranch}" against base branch "${baseBranch}"...`);
 
-  if (eventData.action === "opened" || process.env.GITHUB_EVENT_NAME === "workflow_dispatch") {
-    diff = await getDiff(
-        prDetails.owner,
-        prDetails.repo,
-        prDetails.pull_number
-    );
-  } else if (eventData.action === "synchronize") {
-    const newBaseSha = eventData.before;
-    const newHeadSha = eventData.after;
-
-    console.log("Fetching diff for synchronized event...");
+  try {
     const response = await octokit.repos.compareCommits({
+      owner,
+      repo,
+      base: baseBranch,
+      head: featureBranch,
       headers: {
         accept: "application/vnd.github.v3.diff",
       },
-      owner: prDetails.owner,
-      repo: prDetails.repo,
-      base: newBaseSha,
-      head: newHeadSha,
     });
 
-    diff = String(response.data);
-  } else {
-    console.log("Unsupported event:", process.env.GITHUB_EVENT_NAME);
-    return;
+    return String(response.data);
+  } catch (error: any) {
+    console.error("Error fetching diff against base branch:", error);
+    return null;
   }
+}
+
+async function main() {
+  console.log("Starting main function...");
+  const prDetails = await getPRDetails();
+
+  const baseBranch = "testing";  // Always comparing against the "testing" branch
+  const featureBranch = prDetails.branchName;  // Using the pull request's branch
+
+  console.log(`Event action: ${process.env.GITHUB_EVENT_NAME}`);
+
+  // Always compare the feature branch against "testing" to get the relevant diff
+  const diff = await getDiffAgainstTestingBranch(prDetails.owner, prDetails.repo, featureBranch, baseBranch);
 
   if (!diff) {
     console.log("No diff found");
@@ -524,7 +755,6 @@ async function main() {
   console.log("Diff found, parsing...");
   const parsedDiff = parseDiff(diff);
   parsedDiff.forEach(file => console.log("Parsed file path:", file.to)); // Log parsed file paths
-  //console.log("Parsed Diff:", parsedDiff); // Log parsed diff
 
   // Get include patterns or use a default value if not provided
   let includePatternsInput: string = core.getInput("include") || "**/*.cs,**/*.yml";
@@ -537,19 +767,19 @@ async function main() {
 
   console.log("Include patterns:", includePatterns);
 
+  // Filter files based on include patterns
   const filteredDiff = parsedDiff.filter((file) => {
     const normalizedPath = path.normalize(file.to ?? "");
     const match = includePatterns.some((pattern) => minimatch(normalizedPath, pattern));
-    //console.log(`Checking if file "${normalizedPath}" matches patterns:`, match);
     return match;
   });
-  //console.log("Filtered Diff:", filteredDiff); // Log filtered diff
 
   if (filteredDiff.length === 0) {
     console.log("No files matched the include patterns.");
     return;
   }
 
+  // Analyze the code changes and generate comments
   const comments = await analyzeCode(filteredDiff, prDetails);
   if (comments.length > 0) {
     console.log("Comments generated:", comments);
