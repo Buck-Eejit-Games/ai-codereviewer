@@ -15745,15 +15745,31 @@ function getUniquePRCommits(pull_number, owner, repo, octokit) {
 function getDiff(owner, repo, pull_number) {
     return __awaiter(this, void 0, void 0, function* () {
         console.log("Fetching diff for PR...");
-        const response = yield octokit.pulls.get({
-            owner,
-            repo,
-            pull_number,
-            mediaType: { format: "diff" },
-        });
-        //console.log("Diff fetched:", response.data);
-        // @ts-expect-error - response.data is a string
-        return response.data;
+        try {
+            const pullRequest = yield octokit.pulls.get({
+                owner,
+                repo,
+                pull_number,
+            });
+            // Get base and head SHAs of the PR
+            const baseSha = pullRequest.data.base.sha;
+            const headSha = pullRequest.data.head.sha;
+            console.log(`Comparing commits between base: ${baseSha} and head: ${headSha}`);
+            const response = yield octokit.repos.compareCommits({
+                owner,
+                repo,
+                base: baseSha,
+                head: headSha,
+                headers: {
+                    accept: "application/vnd.github.v3.diff",
+                },
+            });
+            return String(response.data);
+        }
+        catch (error) {
+            console.error("Error fetching PR diff:", error);
+            return null;
+        }
     });
 }
 function analyzeCode(parsedDiff, prDetails) {

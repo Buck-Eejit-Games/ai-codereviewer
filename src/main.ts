@@ -204,22 +204,39 @@ async function getUniquePRCommits(pull_number: number, owner: string, repo: stri
   }
 }
 
-async function getDiff(
-    owner: string,
-    repo: string,
-    pull_number: number
-): Promise<string | null> {
+async function getDiff(owner: string, repo: string, pull_number: number): Promise<string | null> {
   console.log("Fetching diff for PR...");
-  const response = await octokit.pulls.get({
-    owner,
-    repo,
-    pull_number,
-    mediaType: { format: "diff" },
-  });
-  //console.log("Diff fetched:", response.data);
-  // @ts-expect-error - response.data is a string
-  return response.data;
+
+  try {
+    const pullRequest = await octokit.pulls.get({
+      owner,
+      repo,
+      pull_number,
+    });
+
+    // Get base and head SHAs of the PR
+    const baseSha = pullRequest.data.base.sha;
+    const headSha = pullRequest.data.head.sha;
+
+    console.log(`Comparing commits between base: ${baseSha} and head: ${headSha}`);
+
+    const response = await octokit.repos.compareCommits({
+      owner,
+      repo,
+      base: baseSha,
+      head: headSha,
+      headers: {
+        accept: "application/vnd.github.v3.diff",
+      },
+    });
+
+    return String(response.data);
+  } catch (error: any) {
+    console.error("Error fetching PR diff:", error);
+    return null;
+  }
 }
+
 
 async function analyzeCode(
     parsedDiff: File[],
