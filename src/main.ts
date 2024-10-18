@@ -741,61 +741,91 @@ async function getDiffExcludingTestingBranch(
     featureBranch: string,
     baseBranch: string = "testing"
 ): Promise<string | null> {
-  console.log(`Fetching diff for feature branch "${featureBranch}" excluding commits from base branch "${baseBranch}"...`);
+  console.log(`Fetching diff for feature branch "${featureBranch}" compared to base branch "${baseBranch}"...`);
 
   try {
-    // Step 1: Compare the "testing" branch with the feature branch to get unique commits
-    const comparison = await octokit.repos.compareCommits({
-      owner,
-      repo,
-      base: baseBranch,
-      head: featureBranch,
-    });
-
-    const uniqueCommits = comparison.data.commits.map(commit => commit.sha);
-    if (uniqueCommits.length === 0) {
-      console.log("No unique commits found between the feature branch and the testing branch.");
-      return null;
-    }
-
-    // Step 2: Get the parent of the first unique commit
-    const firstCommitSha = uniqueCommits[0];
-    console.log(`Fetching parent commit for the first unique commit: ${firstCommitSha}...`);
-
-    const commitDetails = await octokit.repos.getCommit({
-      owner,
-      repo,
-      ref: firstCommitSha,
-    });
-
-    const parentSha = commitDetails.data.parents[0]?.sha;
-    if (!parentSha) {
-      console.error("Error: Unable to determine parent commit for the first unique commit.");
-      return null;
-    }
-
-    console.log(`Parent commit of the first unique commit is: ${parentSha}`);
-
-    // Step 3: Use the parent of the first unique commit as the base and the last unique commit as the head
-    const lastCommitSha = uniqueCommits[uniqueCommits.length - 1];
-    console.log(`Comparing commits between parent of first unique commit (${parentSha}) and last unique commit (${lastCommitSha})...`);
-
+    // Step 1: Compare the "testing" branch with the feature branch
     const response = await octokit.repos.compareCommits({
       owner,
       repo,
-      base: parentSha,
-      head: lastCommitSha,
+      base: baseBranch, // Compare directly against the base branch (testing)
+      head: featureBranch, // With the head of the feature branch
       headers: {
         accept: "application/vnd.github.v3.diff",
       },
     });
 
-    return String(response.data);
+    return String(response.data); // Return the diff as a string
   } catch (error: any) {
-    console.error("Error fetching cumulative diff excluding testing branch commits:", error);
+    console.error("Error fetching diff between testing branch and feature branch:", error);
     return null;
   }
 }
+
+// async function getDiffExcludingTestingBranch(
+//     owner: string,
+//     repo: string,
+//     featureBranch: string,
+//     baseBranch: string = "testing"
+// ): Promise<string | null> {
+//   console.log(`Fetching diff for feature branch "${featureBranch}" excluding commits from base branch "${baseBranch}"...`);
+//
+//   try {
+//     // Step 1: Compare the "testing" branch with the feature branch to get unique commits
+//     const comparison = await octokit.repos.compareCommits({
+//       owner,
+//       repo,
+//       base: baseBranch,
+//       head: featureBranch,
+//     });
+//
+//     const uniqueCommits = comparison.data.commits.map(commit => commit.sha);
+//     if (uniqueCommits.length === 0) {
+//       console.log("No unique commits found between the feature branch and the testing branch.");
+//       return null;
+//     }
+//    
+//     // Log the unique commits
+//     uniqueCommits.forEach((sha, index) => console.log(`Unique commit #${index + 1}: ${sha}`));
+//
+//     // Step 2: Get the parent of the first unique commit
+//     const firstCommitSha = uniqueCommits[0];
+//     console.log(`Fetching parent commit for the first unique commit: ${firstCommitSha}...`);
+//
+//     const commitDetails = await octokit.repos.getCommit({
+//       owner,
+//       repo,
+//       ref: firstCommitSha,
+//     });
+//
+//     const parentSha = commitDetails.data.parents[0]?.sha;
+//     if (!parentSha) {
+//       console.error("Error: Unable to determine parent commit for the first unique commit.");
+//       return null;
+//     }
+//
+//     console.log(`Parent commit of the first unique commit is: ${parentSha}`);
+//
+//     // Step 3: Use the parent of the first unique commit as the base and the last unique commit as the head
+//     const lastCommitSha = uniqueCommits[uniqueCommits.length - 1];
+//     console.log(`Comparing commits between parent of first unique commit (${parentSha}) and last unique commit (${lastCommitSha})...`);
+//
+//     const response = await octokit.repos.compareCommits({
+//       owner,
+//       repo,
+//       base: parentSha,
+//       head: lastCommitSha,
+//       headers: {
+//         accept: "application/vnd.github.v3.diff",
+//       },
+//     });
+//
+//     return String(response.data);
+//   } catch (error: any) {
+//     console.error("Error fetching cumulative diff excluding testing branch commits:", error);
+//     return null;
+//   }
+// }
 
 async function main() {
   console.log("Starting main function...");
