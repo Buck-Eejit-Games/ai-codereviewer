@@ -31,7 +31,7 @@ if (!includePatternsInput) {
 
 console.log("Inputs retrieved successfully:");
 console.log("GITHUB_TOKEN: [REDACTED]");
-console.log("OPENAI_API_KEY: [REDACTED]");
+console.log("OPENAI_API_KEY:", OPENAI_API_KEY);
 console.log("OPENAI_API_MODEL:", OPENAI_API_MODEL);
 console.log("Include patterns:", includePatternsInput);
 
